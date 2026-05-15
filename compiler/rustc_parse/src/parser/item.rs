@@ -1986,8 +1986,7 @@ impl<'a> Parser<'a> {
             VariantData::Struct { fields, recovered }
         // Tuple-style struct definition with optional where-clause.
         } else if self.token == token::OpenParen {
-            let tuple = self.parse_tuple_struct_body()?;
-            let body = VariantData::Tuple(tuple, DUMMY_NODE_ID);
+            let body = VariantData::Tuple(self.parse_tuple_struct_body()?, DUMMY_NODE_ID);
             generics.where_clause = self.parse_where_clause()?;
             self.expect_semi()?;
             body
@@ -2085,6 +2084,7 @@ impl<'a> Parser<'a> {
             Safety::Default
         }
     }
+
     pub(super) fn parse_tuple_struct_body(&mut self) -> PResult<'a, ThinVec<FieldDef>> {
         // This is the case where we find `struct Foo<T>(T) where T: Copy;`
         // Unit like structs are handled in parse_item_struct function
@@ -2118,12 +2118,15 @@ impl<'a> Parser<'a> {
                         p.token.is_ident() && p.look_ahead(1, |tok| tok == &token::Colon);
                     // Unsafe fields are not supported in tuple structs, as doing so would result in a
                     // parsing ambiguity for `struct X(unsafe fn())`.
-                    let mut ty = p.parse_ty().or_else(|diag| {
-                        if let Some(ref mut snapshot) = snapshot {
-                            snapshot.recover_vcs_conflict_marker();
+                    let mut ty = match p.parse_ty() {
+                        Ok(ty) => ty,
+                        Err(err) => {
+                            if let Some(ref mut snapshot) = snapshot {
+                                snapshot.recover_vcs_conflict_marker();
+                            }
+                            return Err(err);
                         }
-                        return Err(diag);
-                    })?;
+                    };
 
                     // The type parse stopped at a colon, it might because the user add a name field
                     if might_be_namefield && p.token == token::Colon {
