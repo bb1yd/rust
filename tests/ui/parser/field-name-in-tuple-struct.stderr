@@ -1,8 +1,8 @@
-error: field names are not allowed in tuple structs
+error: expected one of `!`, `(`, `)`, `+`, `,`, `::`, or `<`, found `:`
   --> $DIR/field-name-in-tuple-struct.rs:3:13
    |
 LL | struct Foo(a:u8,b:u8);
-   |             ^
+   |             ^ expected one of 7 possible tokens
    |
 help: if you wanted to create a tuple struct, remove field names:
   --> $DIR/field-name-in-tuple-struct.rs:3:12
@@ -15,11 +15,11 @@ LL - struct Foo(a:u8,b:u8);
 LL + struct Foo{a:u8,b:u8}
    |
 
-error: field names are not allowed in tuple structs
+error: expected one of `!`, `(`, `)`, `+`, `,`, `::`, or `<`, found `:`
   --> $DIR/field-name-in-tuple-struct.rs:8:13
    |
 LL | struct Bar(a:u8,u8,c:u8);
-   |             ^
+   |             ^ expected one of 7 possible tokens
    |
 help: if you wanted to create a tuple struct, remove field names:
   --> $DIR/field-name-in-tuple-struct.rs:8:12
@@ -32,11 +32,11 @@ LL - struct Bar(a:u8,u8,c:u8);
 LL + struct Bar{a:u8,u8,c:u8}
    |
 
-error: field names are not allowed in tuple structs
+error: expected one of `!`, `(`, `)`, `+`, `,`, `::`, or `<`, found `:`
   --> $DIR/field-name-in-tuple-struct.rs:14:10
    |
 LL |     Foo(a:u8),
-   |          ^
+   |          ^ expected one of 7 possible tokens
    |
 help: if you wanted to create a tuple struct, remove field names:
   --> $DIR/field-name-in-tuple-struct.rs:14:9

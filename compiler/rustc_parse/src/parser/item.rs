@@ -2138,10 +2138,10 @@ impl<'a> Parser<'a> {
                         match snapshot.parse_ty() {
                             Ok(t) => {
                                 if name_field_error.is_none() {
-                                    let err = p.dcx().struct_span_err(
-                                        p.token.span,
-                                        "field names are not allowed in tuple structs",
-                                    );
+                                    let mut err = p.dcx().struct_span_err(p.token.span,
+                                        "expected one of `!`, `(`, `)`, `+`, `,`, `::`, or `<`, found `:`",
+                                        );
+                                    err.span_label(p.token.span,"expected one of 7 possible tokens");
                                     name_field_error = Some(err);
                                 }
                                 let name_span = ty.span.to(t.span.shrink_to_lo());
