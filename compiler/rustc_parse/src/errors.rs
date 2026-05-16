@@ -8,7 +8,7 @@ use rustc_ast_pretty::pprust;
 use rustc_errors::codes::*;
 use rustc_errors::{
     Applicability, Diag, DiagArgValue, DiagCtxtHandle, Diagnostic, EmissionGuarantee, IntoDiagArg,
-    Level, Subdiagnostic, SuggestionStyle, msg,
+    Level, MultiSpan, Subdiagnostic, SuggestionStyle, msg,
 };
 use rustc_macros::{Diagnostic, Subdiagnostic};
 use rustc_session::errors::ExprParenthesesNeeded;
@@ -4618,4 +4618,23 @@ pub(crate) struct ReservedMultihashLint {
         applicability = "machine-applicable"
     )]
     pub suggestion: Span,
+}
+#[derive(Subdiagnostic)]
+#[help("if you wanted to create a tuple struct, remove field names:")]
+pub(crate) struct RemoveFieldNamesSuggestion {
+    #[primary_span]
+    pub field_names: MultiSpan,
+}
+#[derive(Subdiagnostic)]
+#[multipart_suggestion(
+    "if you wanted to create a regular struct, use curly braces:",
+    applicability = "maybe-incorrect"
+)]
+pub(crate) struct UseRegularStructSuggestion {
+    #[suggestion_part(code = "{{")]
+    pub open: Span,
+    #[suggestion_part(code = "}}")]
+    pub close: Span,
+    #[suggestion_part(code = "")]
+    pub semicolon: Option<Span>,
 }

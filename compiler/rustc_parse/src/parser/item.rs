@@ -23,7 +23,10 @@ use super::{
     AllowConstBlockItems, AttrWrapper, ExpKeywordPair, ExpTokenPair, FollowedByType, ForceCollect,
     Parser, PathStyle, Recovered, Trailing, UsePreAttrPos,
 };
-use crate::errors::{self, FnPointerCannotBeAsync, FnPointerCannotBeConst, MacroExpandsToAdtField};
+use crate::errors::{
+    self, FnPointerCannotBeAsync, FnPointerCannotBeConst, MacroExpandsToAdtField,
+    RemoveFieldNamesSuggestion, UseRegularStructSuggestion,
+};
 use crate::exp;
 
 impl<'a> Parser<'a> {
@@ -2190,22 +2193,13 @@ impl<'a> Parser<'a> {
                 self.eat_to_tokens(&[exp!(CloseParen)]);
                 self.bump();
             }
-            name_field_error.span_help(
-                name_fields_span,
-                "if you wanted to create a tuple struct, remove field names:",
-            );
-            let mut suggestions =
-                vec![(openparen_span, "{".to_string()), (self.prev_token.span, "}".to_string())];
-            // check if there's a semicolon at the end of this tuple struct
-            // if so, remove it in the suggestion
-            if self.token == token::Semi {
-                suggestions.push((self.token.span, "".to_string()));
-            }
-            name_field_error.multipart_suggestion(
-                "if you wanted to create a regular struct, use curly braces:",
-                suggestions,
-                Applicability::MaybeIncorrect,
-            );
+            name_field_error
+                .subdiagnostic(RemoveFieldNamesSuggestion { field_names: name_fields_span });
+            name_field_error.subdiagnostic(UseRegularStructSuggestion {
+                open: openparen_span,
+                close: self.prev_token.span,
+                semicolon: if self.token == token::Semi { Some(self.token.span) } else { None },
+            });
             name_field_error.emit();
         }
         ret
