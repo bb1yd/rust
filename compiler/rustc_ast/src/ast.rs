@@ -3338,6 +3338,7 @@ pub enum UseTreeKind {
 /// Used in `use` items both at top-level and inside of braces in import groups.
 #[derive(Clone, Encodable, Decodable, Debug, Walkable)]
 pub struct UseTree {
+    pub attrs: AttrVec,
     pub prefix: Path,
     pub kind: UseTreeKind,
 }

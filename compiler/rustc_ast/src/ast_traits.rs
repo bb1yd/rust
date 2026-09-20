@@ -9,7 +9,7 @@ use crate::tokenstream::{LazyAttrTokenStream, WithTokens};
 use crate::{
     Arm, AssocItem, AttrItem, AttrKind, AttrVec, Attribute, Block, Crate, Expr, ExprField,
     FieldDef, ForeignItem, GenericParam, Item, NodeId, Param, Pat, PatField, Path, Stmt, StmtKind,
-    Ty, Variant, Visibility, WherePredicate,
+    Ty, UseTree, Variant, Visibility, WherePredicate,
 };
 
 /// A trait for AST nodes having an ID.
@@ -106,7 +106,8 @@ impl_has_tokens_none!(
     Param,
     PatField,
     Variant,
-    WherePredicate
+    WherePredicate,
+    UseTree
 );
 
 impl<T: HasAttrs> HasTokens for WithTokens<T> {
@@ -246,6 +247,7 @@ impl_has_attrs!(
     PatField,
     Variant,
     WherePredicate,
+    UseTree
 );
 impl_has_attrs_none!(Attribute, AttrItem, Block, Pat, Path, Ty, Visibility);
 

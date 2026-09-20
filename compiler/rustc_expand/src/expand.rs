@@ -263,6 +263,11 @@ ast_fragments! {
         one fn visit_crate;
         fn make_crate;
     }
+    UseTree(SmallVec<[ast::UseTree;1]>) {
+        "use tree";
+        many fn flat_map_use_tree; fn visit_use_tree();
+        fn make_use_tree;
+    }
 }
 
 pub enum SupportsMacroExpansion {
@@ -296,6 +301,7 @@ impl AstFragmentKind {
             | AstFragmentKind::Params
             | AstFragmentKind::FieldDefs
             | AstFragmentKind::Variants
+            | AstFragmentKind::UseTree
             | AstFragmentKind::WherePredicates => SupportsMacroExpansion::No,
         }
     }
@@ -1036,7 +1042,8 @@ impl<'a, 'b> MacroExpander<'a, 'b> {
             | Annotatable::Param(..)
             | Annotatable::FieldDef(..)
             | Annotatable::Variant(..)
-            | Annotatable::WherePredicate(..) => panic!("unexpected annotatable"),
+            | Annotatable::WherePredicate(..)
+            | Annotatable::UseTree(..) => panic!("unexpected annotatable"),
         };
         if self.cx.ecfg.features.proc_macro_hygiene() {
             return;
@@ -1148,7 +1155,8 @@ pub fn parse_ast_fragment<'a>(
         | AstFragmentKind::Params
         | AstFragmentKind::FieldDefs
         | AstFragmentKind::Variants
-        | AstFragmentKind::WherePredicates => panic!("unexpected AST fragment kind"),
+        | AstFragmentKind::WherePredicates
+        | AstFragmentKind::UseTree => panic!("unexpected AST fragment kind"),
     })
 }
 
@@ -2042,7 +2050,21 @@ impl InvocationCollectorNode for AstNodeWrapper<ast::Expr, MethodReceiverTag> {
         Target::Expression
     }
 }
-
+impl InvocationCollectorNode for ast::UseTree {
+    const KIND: AstFragmentKind = AstFragmentKind::UseTree;
+    fn to_annotatable(self) -> Annotatable {
+        Annotatable::UseTree(self)
+    }
+    fn fragment_to_output(fragment: AstFragment) -> Self::OutputTy {
+        fragment.make_use_tree()
+    }
+    fn walk_flat_map(self, collector: &mut InvocationCollector<'_, '_>) -> Self::OutputTy {
+        walk_flat_map_use_tree(collector, self)
+    }
+    fn as_target(&self) -> Target {
+        Target::Use
+    }
+}
 fn build_single_delegations<'a, Node: InvocationCollectorNode>(
     ecx: &ExtCtxt<'_>,
     deleg: &'a ast::DelegationMac,
@@ -2590,7 +2612,9 @@ impl<'a, 'b> MutVisitor for InvocationCollector<'a, 'b> {
 
         self.flat_map_node(node)
     }
-
+    fn flat_map_use_tree(&mut self, node: ast::UseTree) -> SmallVec<[ast::UseTree; 1]> {
+        self.flat_map_node(node)
+    }
     fn visit_crate(&mut self, node: &mut ast::Crate) {
         self.visit_node(node)
     }

@@ -22,7 +22,8 @@ use super::{
     ForceCollect, IsDotDotDot, Parser, PathStyle, Recovered, Trailing, UsePreAttrPos,
 };
 use crate::diagnostics::{
-    self, MacroExpandsToAdtField, UseDoubleColonSuggestion, UseRegularStructSuggestion,
+    self, MacroExpandsToAdtField, SingleColonImportPath, UseDoubleColonSuggestion,
+    UseRegularStructSuggestion,
 };
 use crate::exp;
 
@@ -167,7 +168,6 @@ impl<'a> Parser<'a> {
             attrs.prepend_to_nt_inner(&mut item.attrs);
             return Ok(Some(*item));
         }
-
         self.collect_tokens(None, attrs, force_collect, |this, mut attrs| {
             let lo = this.token.span;
             let vis = this.parse_visibility(FollowedByType::No)?;
@@ -435,7 +435,7 @@ impl<'a> Parser<'a> {
 
     fn parse_use_item(&mut self) -> PResult<'a, ItemKind> {
         let use_token_span = self.prev_token.span;
-        let tree = self.parse_use_tree(use_token_span, None)?;
+        let tree = self.parse_use_tree(false)?;
         if let Err(mut e) = self.expect_semi() {
             match tree.kind {
                 UseTreeKind::Glob(_) => {
@@ -1318,63 +1318,55 @@ impl<'a> Parser<'a> {
     ///            PATH `::` `{` USE_TREE_LIST `}` |
     ///            PATH [`as` IDENT]
     /// ```
-    fn parse_use_tree<'b>(
-        &mut self,
-        use_token_span: Span,
-        use_path: Option<&'b UsePathList<'b>>,
-    ) -> PResult<'a, UseTree> {
+    fn parse_use_tree(&mut self, allow_attrs: bool) -> PResult<'a, UseTree> {
         let lo = self.token.span;
-
-        let mut prefix = ast::Path { segments: ThinVec::new(), span: lo.shrink_to_lo() };
-        let kind =
-            if self.check(exp!(OpenBrace)) || self.check(exp!(Star)) || self.is_import_coupler() {
+        let attrs = if allow_attrs { self.parse_outer_attributes()? } else { AttrWrapper::empty() };
+        self.collect_tokens(None, attrs, ForceCollect::No, |this, attrs| {
+            let mut prefix = ast::Path { segments: ThinVec::new(), span: lo.shrink_to_lo() };
+            let kind = if this.check(exp!(OpenBrace))
+                || this.check(exp!(Star))
+                || this.is_import_coupler()
+            {
                 // `use *;` or `use ::*;` or `use {...};` or `use ::{...};`
-                let mod_sep_ctxt = self.token.span.ctxt();
-                if self.eat_path_sep() {
+                let mod_sep_ctxt = this.token.span.ctxt();
+                if this.eat_path_sep() {
                     prefix
                         .segments
                         .push(PathSegment::path_root(lo.shrink_to_lo().with_ctxt(mod_sep_ctxt)));
                 }
 
-                self.parse_use_tree_glob_or_nested(use_token_span, use_path)?
+                this.parse_use_tree_glob_or_nested()?
             } else {
                 // `use path::*;` or `use path::{...};` or `use path;` or `use path as bar;`
-                prefix = self.parse_path(PathStyle::Mod)?;
+                prefix = this.parse_path(PathStyle::Mod)?;
 
-                if self.eat_path_sep() {
-                    let use_path = UsePathList { elements: &prefix.segments, prev: use_path };
-                    self.parse_use_tree_glob_or_nested(use_token_span, Some(&use_path))?
+                if this.eat_path_sep() {
+                    this.parse_use_tree_glob_or_nested()?
                 } else {
                     // Recover from using a colon as path separator.
-                    while self.eat_noexpect(&token::Colon) {
-                        self.dcx().emit_err(diagnostics::SingleColonImportPath {
-                            span: self.prev_token.span,
-                        });
+                    while this.eat_noexpect(&token::Colon) {
+                        this.dcx().emit_err(SingleColonImportPath { span: this.prev_token.span });
 
                         // We parse the rest of the path and append it to the original prefix.
-                        self.parse_path_segments(&mut prefix.segments, PathStyle::Mod, None)?;
-                        prefix.span = lo.to(self.prev_token.span);
+                        this.parse_path_segments(&mut prefix.segments, PathStyle::Mod, None)?;
+                        prefix.span = lo.to(this.prev_token.span);
                     }
 
-                    UseTreeKind::Simple(self.parse_rename()?)
+                    UseTreeKind::Simple(this.parse_rename()?)
                 }
             };
-
-        Ok(UseTree { prefix, kind })
+            Ok((UseTree { attrs, prefix, kind }, Trailing::No, UsePreAttrPos::No))
+        })
     }
 
     /// Parses `*` or `{...}`.
-    fn parse_use_tree_glob_or_nested<'b>(
-        &mut self,
-        use_token_span: Span,
-        use_path: Option<&'b UsePathList<'b>>,
-    ) -> PResult<'a, UseTreeKind> {
+    fn parse_use_tree_glob_or_nested(&mut self) -> PResult<'a, UseTreeKind> {
         Ok(if self.eat(exp!(Star)) {
             UseTreeKind::Glob(self.prev_token.span)
         } else {
             let lo = self.token.span;
             UseTreeKind::Nested {
-                items: self.parse_use_tree_list(use_token_span, use_path)?,
+                items: self.parse_use_tree_list()?,
                 span: lo.to(self.prev_token.span),
             }
         })
@@ -1385,29 +1377,10 @@ impl<'a> Parser<'a> {
     /// ```text
     /// USE_TREE_LIST = ∅ | (USE_TREE `,`)* USE_TREE [`,`]
     /// ```
-    fn parse_use_tree_list<'b>(
-        &mut self,
-        use_token_span: Span,
-        prefix: Option<&'b UsePathList<'b>>,
-    ) -> PResult<'a, ThinVec<(UseTree, ast::NodeId)>> {
+    fn parse_use_tree_list(&mut self) -> PResult<'a, ThinVec<(UseTree, NodeId)>> {
         self.parse_delim_comma_seq(exp!(OpenBrace), exp!(CloseBrace), |p| {
             p.recover_vcs_conflict_marker();
-
-            let mut attr_span = None;
-            let attrs = p.parse_outer_attributes()?;
-            if !attrs.is_empty() {
-                let raw_attrs = attrs.take_for_recovery(&p.psess);
-                attr_span =
-                    Some(raw_attrs.first().unwrap().span.to(raw_attrs.last().unwrap().span));
-            }
-
-            let use_tree = p.parse_use_tree(use_token_span, prefix)?;
-
-            if let Some(attr_span) = attr_span {
-                p.emit_error_attr_in_use_tree(use_token_span, prefix, use_tree.span(), attr_span);
-            }
-
-            Ok((use_tree, DUMMY_NODE_ID))
+            Ok((p.parse_use_tree(true)?, DUMMY_NODE_ID))
         })
         .map(|(r, _)| r)
     }

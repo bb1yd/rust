@@ -56,6 +56,7 @@ pub enum Annotatable {
     Variant(ast::Variant),
     WherePredicate(ast::WherePredicate),
     Crate(ast::Crate),
+    UseTree(ast::UseTree),
 }
 
 impl Annotatable {
@@ -75,6 +76,7 @@ impl Annotatable {
             Annotatable::Variant(v) => v.span,
             Annotatable::WherePredicate(wp) => wp.span,
             Annotatable::Crate(c) => c.spans.inner_span,
+            Annotatable::UseTree(t) => t.span(),
         }
     }
 
@@ -94,6 +96,7 @@ impl Annotatable {
             Annotatable::Variant(v) => v.visit_attrs(f),
             Annotatable::WherePredicate(wp) => wp.visit_attrs(f),
             Annotatable::Crate(c) => c.visit_attrs(f),
+            Annotatable::UseTree(t) => t.visit_attrs(f),
         }
     }
 
@@ -113,6 +116,7 @@ impl Annotatable {
             Annotatable::Variant(v) => visitor.visit_variant(v),
             Annotatable::WherePredicate(wp) => visitor.visit_where_predicate(wp),
             Annotatable::Crate(c) => visitor.visit_crate(c),
+            Annotatable::UseTree(t) => visitor.visit_use_tree(t),
         }
     }
 
@@ -135,7 +139,8 @@ impl Annotatable {
             | Annotatable::FieldDef(..)
             | Annotatable::Variant(..)
             | Annotatable::WherePredicate(..)
-            | Annotatable::Crate(..) => panic!("unexpected annotatable"),
+            | Annotatable::Crate(..)
+            | Annotatable::UseTree(..) => panic!("unexpected annotatable"),
         }
     }
 
@@ -499,6 +504,10 @@ pub trait MacResult {
     fn make_crate(self: Box<Self>) -> Option<ast::Crate> {
         // Fn-like macros cannot produce a crate.
         unreachable!()
+    }
+
+    fn make_use_tree(self: Box<Self>) -> Option<SmallVec<[ast::UseTree; 1]>> {
+        None
     }
 }
 

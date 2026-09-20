@@ -405,6 +405,7 @@ macro_rules! common_visitor_and_walkers {
             ThinVec<Box<Ty>>,
             ThinVec<TyPat>,
             ThinVec<EiiImpl>,
+            ThinVec<(UseTree,NodeId)>,
         );
 
         // This macro generates `impl Visitable` and `impl MutVisitable` that forward to `Walkable`
@@ -759,6 +760,10 @@ macro_rules! common_visitor_and_walkers {
                 fn flat_map_pat_field(&mut self, fp: PatField) -> SmallVec<[PatField; 1]> {
                     walk_flat_map_pat_field(self, fp)
                 }
+
+                fn flat_map_use_tree(&mut self,u:UseTree)->SmallVec<[UseTree;1]>{
+                    walk_flat_map_use_tree(self,u)
+                }
             )?
         }
 
@@ -786,13 +791,13 @@ macro_rules! common_visitor_and_walkers {
             V::Result::output()
         }
 
-        $(impl_visitable!(|&$lt self: ThinVec<(UseTree, NodeId)>, vis: &mut V, _extra: ()| {
-            for (nested_tree, nested_id) in self {
-                try_visit!(vis.visit_nested_use_tree(nested_tree, *nested_id));
+        $(impl_visitable!(|&$lt self: ThinVec<UseTree>, vis: &mut V, _extra: ()| {
+            for nested_tree in self {
+                try_visit!(vis.visit_use_tree(nested_tree));
             }
             V::Result::output()
         });)?
-        $(impl_visitable_list!(<$mut> ThinVec<(UseTree, NodeId)>,);)?
+        $(impl_visitable_list!(<$mut> ThinVec<UseTree>,);)?
 
         fn walk_item_inner<$($lt,)? K: WalkItemKind, V: $Visitor$(<$lt>)?>(
             visitor: &mut V,

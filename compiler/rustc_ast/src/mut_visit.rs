@@ -334,6 +334,7 @@ generate_walk_flat_map_fns! {
     walk_flat_map_item(Box<Item>) => visit_item;
     walk_flat_map_foreign_item(Box<ForeignItem>) => visit_foreign_item;
     walk_flat_map_assoc_item(Box<AssocItem>, ctxt: AssocCtxt) => visit_assoc_item;
+    walk_flat_map_use_tree(UseTree)=> visit_use_tree;
 }
 
 pub fn walk_filter_map_expr<T: MutVisitor>(vis: &mut T, mut e: Box<Expr>) -> Option<Box<Expr>> {
