@@ -367,7 +367,7 @@ macro_rules! for_each_ast_visit_hook {
             visit_ty(Ty) => walk_ty;
             visit_ty_pat(TyPat) => walk_ty_pat;
             visit_use_tree(UseTree) => walk_use_tree;
-            visit_use_tree_and_id(UseTreeAndId) => walk_use_tree_and_id;
+            visit_use_tree_and_id(AnnotatableUseTree) => walk_use_tree_and_id;
             visit_variant(Variant) => walk_variant;
             visit_variant_data(VariantData) => walk_variant_data;
             visit_vis(Visibility) => walk_vis;
@@ -462,6 +462,7 @@ macro_rules! common_visitor_and_walkers {
         // custom visits for the `MutVisitor`.
         impl_visitable_list! {
             // tidy-alphabetical-start
+            ThinVec<AnnotatableUseTree>,
             ThinVec<(Ident, Option<Ident>)>,
             ThinVec<(NodeId, Path)>,
             ThinVec<AngleBracketedArg>,
@@ -477,7 +478,6 @@ macro_rules! common_visitor_and_walkers {
             ThinVec<TestBinderExists>,
             ThinVec<TestBinderForall>,
             ThinVec<TyPat>,
-            ThinVec<UseTreeAndId>,
             // tidy-alphabetical-end
         }
 
