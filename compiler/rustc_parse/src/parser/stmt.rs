@@ -329,7 +329,8 @@ impl<'a> Parser<'a> {
 
         let (pat, colon) =
             self.parse_pat_before_ty(None, RecoverComma::Yes, PatternLocation::LetBinding)?;
-
+        let mut new_bindings = self.local_bindings.clone();
+        new_bindings.record_bindings(&pat);
         let (err, ty, colon_sp) = if colon {
             // Save the state of the parser before parsing type normally, in case there is a `:`
             // instead of an `=` typo.
@@ -435,6 +436,7 @@ impl<'a> Parser<'a> {
                 }
             }
         };
+        self.local_bindings = new_bindings;
         let hi = if self.token == token::Semi { self.token.span } else { self.prev_token.span };
         Ok(Box::new(ast::Local {
             super_,
@@ -522,6 +524,7 @@ impl<'a> Parser<'a> {
 
     /// Parses a block. No inner attributes are allowed.
     pub fn parse_block(&mut self) -> PResult<'a, Box<Block>> {
+        let old_bindings = self.local_bindings.clone();
         let (attrs, block) = self.parse_inner_attrs_and_block(None)?;
         if let [.., last] = &*attrs {
             let suggest_to_outer = match &last.kind {
@@ -536,6 +539,7 @@ impl<'a> Parser<'a> {
                 suggest_to_outer,
             );
         }
+        self.local_bindings = old_bindings;
         Ok(block)
     }
 

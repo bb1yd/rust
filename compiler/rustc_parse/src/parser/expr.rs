@@ -2562,6 +2562,7 @@ impl<'a> Parser<'a> {
             RecoverColon::Yes,
             CommaRecoveryMode::LikelyTuple,
         )?;
+        self.local_bindings.record_bindings(&pat);
         if self.token == token::EqEq {
             self.dcx().emit_err(crate::diagnostics::ExpectedEqForLetExpr {
                 span: self.token.span,
@@ -3068,10 +3069,11 @@ impl<'a> Parser<'a> {
     pub(super) fn parse_arm(&mut self) -> PResult<'a, Arm> {
         let attrs = self.parse_outer_attributes()?;
         self.collect_tokens(None, attrs, ForceCollect::No, |this, attrs| {
+            let old_bindings = this.local_bindings.clone();
             let lo = this.token.span;
             let (pat, guard) = this.parse_match_arm_pat_and_guard()?;
             let pat = Box::new(pat);
-
+            this.local_bindings.record_bindings(&pat);
             let span_before_body = this.prev_token.span;
             let arm_body;
             let is_fat_arrow = this.check(exp!(FatArrow));
@@ -3244,7 +3246,7 @@ impl<'a> Parser<'a> {
                 });
             }
             result?;
-
+            this.local_bindings = old_bindings;
             Ok((
                 ast::Arm {
                     attrs,

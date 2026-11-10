@@ -227,7 +227,7 @@ impl<'a> Parser<'a> {
 
         // suggest prepending a keyword in identifier position with `r#`
         let suggest_raw = if let Some((ident, IdentKind::Normal)) = self.token.ident()
-            && ident.is_raw_guess()
+            && self.local_bindings.0.contains(&ident.name)
             && self.look_ahead(1, |t| valid_follow.contains(&t.kind))
         {
             recovered_ident = Some((ident, IdentKind::Raw));

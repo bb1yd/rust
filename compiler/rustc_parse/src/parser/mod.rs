@@ -34,14 +34,16 @@ use rustc_ast::tokenstream::{
 };
 use rustc_ast::util::case::Case;
 use rustc_ast::util::classify;
+use rustc_ast::visit::Visitor;
 use rustc_ast::{
     self as ast, AnonConst, AttrArgs, AttrId, BinOpKind, ByRef, Const, CoroutineKind,
     CoroutineMarker, DUMMY_NODE_ID, DelimArgs, Expr, ExprKind, Extern, HasTokens, ImplRestriction,
-    MutRestriction, Mutability, Recovered, RestrictionKind, Safety, StrLit, Visibility,
+    MutRestriction, Mutability, Pat, Recovered, RestrictionKind, Safety, StrLit, Visibility,
     VisibilityKind,
 };
 use rustc_ast_pretty::pprust;
 use rustc_data_structures::fx::FxHashMap;
+use rustc_data_structures::unord::UnordSet;
 use rustc_errors::{Applicability, Diag, FatalError, MultiSpan, PResult};
 use rustc_index::interval::IntervalSet;
 use rustc_session::parse::ParseSess;
@@ -128,6 +130,22 @@ bitflags::bitflags! {
         /// Used to detect a missing `else` in a let statement.
         /// e.g. let Some(foo) = bar{return;};
         const IN_LET            = 1 << 6;
+    }
+}
+#[derive(Clone, Default)]
+pub(crate) struct LocalBindings(pub(crate) UnordSet<Symbol>);
+impl LocalBindings {
+    fn record_bindings(&mut self, pat: &Pat) {
+        LocalBindingsVisitor(self).visit_pat(pat);
+    }
+}
+struct LocalBindingsVisitor<'a>(&'a mut LocalBindings);
+
+impl<'a> Visitor<'a> for LocalBindingsVisitor<'_> {
+    fn visit_ident(&mut self, ident: &Ident) -> Self::Result {
+        if ident.is_raw_guess() {
+            self.0.0.insert(ident.name);
+        }
     }
 }
 
@@ -244,13 +262,14 @@ pub struct Parser<'a> {
     in_fn_body: bool = false,
     /// Whether we have detected a missing semicolon in function body.
     pub fn_body_missing_semi_guar: Option<ErrorGuaranteed> = None,
+    local_bindings: LocalBindings,
 }
 
 // This type is used a lot, e.g. it's cloned when matching many declarative macro rules with
 // nonterminals. Make sure it doesn't unintentionally get bigger. We only check a few arches
 // though, because `TokenTypeSet(u128)` alignment varies on others, changing the total size.
 #[cfg(all(target_pointer_width = "64", any(target_arch = "aarch64", target_arch = "x86_64")))]
-rustc_data_structures::static_assert_size!(Parser<'_>, 288);
+rustc_data_structures::static_assert_size!(Parser<'_>, 320);
 
 /// Stores span information about a closure.
 #[derive(Clone, Debug)]
@@ -356,6 +375,7 @@ impl<'a> Parser<'a> {
                 inner_attr_parser_ranges: Default::default(),
                 seen_attrs: IntervalSet::new(u32::MAX as usize),
             },
+            local_bindings: LocalBindings::default(),
             ..
         };
 

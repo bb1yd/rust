@@ -125,6 +125,7 @@ impl<'a> Parser<'a> {
         vis: &Visibility,
         case: Case,
     ) -> PResult<'a, (Ident, FnSig, Generics, Option<Box<FnContract>>, Option<Box<Block>>)> {
+        let old_bindings = std::mem::take(&mut self.local_bindings);
         let fn_span = self.token.span;
         let header = self.parse_fn_front_matter(vis, case, FrontMatterParsingMode::Function)?; // `const ... fn`
         let ident = self.parse_ident()?; // `foo`
@@ -161,6 +162,7 @@ impl<'a> Parser<'a> {
         // Either `;` or `{ ... }`.
         let body =
             self.parse_fn_body(attrs, &ident, &mut sig_hi, fn_parse_mode.req_body, fn_params_end)?;
+        self.local_bindings = old_bindings;
         let fn_sig_span = sig_lo.to(sig_hi);
         Ok((ident, FnSig { header, decl, span: fn_sig_span }, generics, contract, body))
     }
@@ -721,6 +723,7 @@ impl<'a> Parser<'a> {
                 // Create a placeholder argument for proper arg count (issue #34264).
                 Ok(dummy_arg(Ident::new(sym::dummy, lo.to(p.prev_token.span)), guar))
             });
+            p.local_bindings.record_bindings(&param.as_ref().unwrap().pat);
             // ...now that we've parsed the first argument, `self` is no longer allowed.
             first_param = false;
             param
