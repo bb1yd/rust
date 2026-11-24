@@ -18,8 +18,7 @@ fn should_we() {
     let not = true;
     if not  // lack of braces is [sic]
         println!("Then when?");
-    //~^ ERROR expected `{`, found `;
-    //~| ERROR unexpected `println` after identifier
+    //~^ ERROR expected `{`, found `println`
 }
 
 fn sleepy() {

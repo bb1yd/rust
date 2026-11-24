@@ -42,6 +42,10 @@ impl<'a> Parser<'a> {
                 token::Literal(..) | token::Pound => true,
                 _ => t.is_metavar_expr(),
             })
+            && !self.local_bindings.0.contains(&sym::not)
+        // If there's a `not` binding in the scope then we should
+        // stop suggesting `not`->`!` because the user is more likely
+        // refering to this variable instead of mistakening `!` as `not`
     }
 
     /// Recover from alphabetic logic operator `not` as found in e.g., Python.
