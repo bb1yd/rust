@@ -4,14 +4,14 @@
 // issue: <https://github.com/rust-lang/rust/issues/161147>
 
 fn f() {
-    indexee[
+    indexee[ //~ HELP:you might have meant to call a macro
         receiver
         .method(), //~ ERROR: expected one of `.`, `?`, `]`, or an operator, found `,`
     ]
 }
 
 fn g() {
-    (indexee[
+    (indexee[ //~ HELP:you might have meant to call a macro
         receiver
         .method(), //~ ERROR: expected one of `.`, `?`, `]`, or an operator, found `,`
     ])

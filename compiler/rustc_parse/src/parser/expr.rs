@@ -1045,6 +1045,17 @@ impl<'a> Parser<'a> {
         let index = self.parse_expr()?;
         self.recover_from_missing_semicolon_before_array(prev_token.span, open_delim_span)?;
         self.expect(exp!(CloseBracket)).map_err(|mut err| {
+            // Don't suggest macro call when there's only one argument in
+            // the index expression and there's a local binding:
+            // let array = []
+            // array[smth,]
+            if let ExprKind::Path(None, path) = &base.kind
+                && let Some(ident) = path.as_single_argless_ident()
+                && self.local_bindings.0.contains(&ident.name)
+                && self.look_ahead(1, |tok| tok == &token::CloseBracket)
+            {
+                return err;
+            }
             if prev_token.is_non_reserved_ident() {
                 err.span_suggestion_verbose(
                     prev_token.span.shrink_to_hi(),

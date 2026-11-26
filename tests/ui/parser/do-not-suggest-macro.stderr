@@ -1,0 +1,25 @@
+error: expected one of `.`, `?`, `]`, or an operator, found `;`
+  --> $DIR/do-not-suggest-macro.rs:7:28
+   |
+LL |     array[receiver.method();]
+   |                            ^ expected one of `.`, `?`, `]`, or an operator
+
+error: expected one of `.`, `?`, `]`, or an operator, found `,`
+  --> $DIR/do-not-suggest-macro.rs:14:18
+   |
+LL |         .method(),
+   |                  ^ expected one of `.`, `?`, `]`, or an operator
+
+error: expected one of `.`, `?`, `]`, or an operator, found `,`
+  --> $DIR/do-not-suggest-macro.rs:21:18
+   |
+LL |     let a = vec[1,2];
+   |                  ^ expected one of `.`, `?`, `]`, or an operator
+   |
+help: you might have meant to call a macro
+   |
+LL |     let a = vec![1,2];
+   |                +
+
+error: aborting due to 3 previous errors
+
